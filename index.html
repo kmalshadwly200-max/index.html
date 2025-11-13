@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة الثعبان - نمط الكونسول الكلاسيكي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* أنماط مخصصة للوحة اللعبة والخط */
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        :root {
+            --game-bg: #2d3748; /* أزرق داكن */
+            --snake-color: #48bb78; /* أخضر */
+            --food-color: #fc8181; /* أحمر */
+            --text-color: #cbd5e0; /* رمادي فاتح */
+        }
+        body {
+            font-family: 'VT323', monospace;
+            background-color: #1a202c;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .game-container {
+            max-width: 90vw;
+            width: 500px;
+            border: 4px solid var(--snake-color);
+            box-shadow: 0 0 20px rgba(72, 187, 120, 0.5);
+        }
+        #gameCanvas {
+            background-color: var(--game-bg);
+            display: block;
+            width: 100%;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        .control-button {
+            transition: all 0.1s ease;
+            box-shadow: 0 4px #1c4532; /* ظل ثلاثي الأبعاد */
+        }
+        .control-button:active {
+            box-shadow: 0 1px #1c4532;
+            transform: translateY(3px);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="game-container rounded-xl overflow-hidden">
+    <!-- تم تجميع العنوان والعنوان الفرعي في div واحد لتطبيق نفس الخلفية والحدود -->
+    <div class="bg-gray-800 py-2">
+        <h1 class="text-xl sm:text-2xl text-center tracking-wider">لعبة الثعبان - نمط الكونسول الكلاسيكي</h1>
+        <!-- العنوان الجديد المطلوب من المستخدم -->
+        <p class="text-xs sm:text-sm text-center text-gray-400 mt-1">صنعت من طرف عماد الدين شادولي</p>
+    </div>
+
+    <!-- النتيجة والتعليمات -->
+    <div class="flex justify-between items-center px-4 py-2 bg-gray-700 text-lg sm:text-xl">
+        <span>النتيجة: <span id="score">0</span></span>
+        <span id="message" class="text-yellow-400">اضغط مسافة أو استخدم أزرار التحكم للبدء</span>
+    </div>
+
+    <!-- لوحة الرسم للعبة -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- أزرار التحكم (للهاتف واللمس) -->
+    <div class="p-4 bg-gray-800">
+        <h3 class="text-center text-sm mb-2 text-gray-400">أزرار التحكم (للهاتف)</h3>
+        <div class="flex justify-center flex-col items-center gap-2">
+            <!-- أعلى -->
+            <button id="up" class="control-button w-12 h-12 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-md flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+            </button>
+            <div class="flex gap-2">
+                <!-- يسار -->
+                <button id="left" class="control-button w-12 h-12 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-md flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                </button>
+                <!-- بدء/إيقاف مؤقت -->
+                <button id="start-pause" class="control-button w-24 h-12 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-md text-sm">
+                    إيقاف مؤقت
+                </button>
+                <!-- يمين -->
+                <button id="right" class="control-button w-12 h-12 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-md flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </button>
+            </div>
+            <!-- أسفل -->
+            <button id="down" class="control-button w-12 h-12 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-md flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- إعدادات اللعبة ---
+    const COLS = 50; // عرض اللوحة (يتوافق مع كود باسكال)
+    const ROWS = 20; // ارتفاع اللوحة (يتوافق مع كود باسكال)
+    const CELL_SIZE = 16; // حجم الخلية بالبكسل
+    const INITIAL_SPEED = 150; // السرعة الأولية بالملي ثانية (يتوافق مع تأخير باسكال)
+
+    // --- متغيرات الحالة ---
+    let snake = [];
+    let food = { x: 0, y: 0 };
+    let dx = 1; // اتجاه x (1: يمين, -1: يسار, 0: عمودي)
+    let dy = 0; // اتجاه y (1: أسفل, -1: أعلى, 0: أفقي)
+    let score = 0;
+    let gameLoopId;
+    let gameRunning = false;
+    let nextMoveQueue = []; // لمعالجة ضغطات المفاتيح السريعة بسلاسة
+    let isPaused = true;
+
+    // --- عناصر DOM والسياق ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score');
+    const messageDisplay = document.getElementById('message');
+    const startPauseButton = document.getElementById('start-pause');
+
+    // --- وظائف مساعدة ---
+
+    /**
+     * تهيئة أبعاد لوحة الرسم بناءً على COLS وROWS وCELL_SIZE.
+     * يجب استدعاؤها عند التحميل وتغيير الحجم.
+     */
+    function setupCanvas() {
+        canvas.width = COLS * CELL_SIZE;
+        canvas.height = ROWS * CELL_SIZE;
+    }
+
+    /**
+     * إعادة تعيين حالة اللعبة.
+     */
+    function initGame() {
+        score = 0;
+        scoreDisplay.textContent = score;
+        isPaused = true;
+        
+        // الموضع الأولي للثعبان (طوله 5 وحدات، يتجه لليمين)
+        snake = [];
+        for (let i = 0; i < 5; i++) {
+            snake.push({ x: 10 - i, y: 10 });
+        }
+        dx = 1;
+        dy = 0;
+        
+        // مسح لوحة الرسم ورسم الحالة الأولية
+        draw();
+        
+        messageDisplay.textContent = 'اضغط بدء أو أزرار التحكم للبدء.';
+        startPauseButton.textContent = 'بدء';
+    }
+
+    /**
+     * توليد طعام في موقع عشوائي غير مشغول.
+     */
+    function generateFood() {
+        let newFood;
+        do {
+            newFood = {
+                x: Math.floor(Math.random() * COLS),
+                y: Math.floor(Math.random() * ROWS)
+            };
+        } while (snake.some(p => p.x === newFood.x && p.y === newFood.y));
+        food = newFood;
+    }
+
+    /**
+     * رسم نقطة واحدة (خلية) على لوحة الرسم.
+     * @param {Object} p - إحداثيات النقطة {x, y}.
+     * @param {string} color - اللون المستخدم للتعبئة.
+     */
+    function drawPoint(p, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(p.x * CELL_SIZE, p.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        // إضافة حدود صغيرة اختيارية للرؤية
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+        ctx.strokeRect(p.x * CELL_SIZE, p.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    }
+
+    /**
+     * وظيفة الرسم الرئيسية. تمسح لوحة الرسم وتعيد رسم الثعبان والطعام.
+     */
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // رسم الثعبان
+        snake.forEach(segment => drawPoint(segment, 'var(--snake-color)'));
+
+        // رسم الطعام
+        drawPoint(food, 'var(--food-color)');
+    }
+
+    /**
+     * تحديث موضع الثعبان والتحقق من الاصطدامات/الطعام.
+     */
+    function update() {
+        if (!gameRunning || isPaused) return;
+
+        // معالجة الحركة التالية في قائمة الانتظار إذا وجدت
+        if (nextMoveQueue.length > 0) {
+            const nextDirection = nextMoveQueue.shift();
+            // تطبيق الاتجاه الجديد، والتحقق من منع الدوران 180 درجة
+            if (nextDirection === 'LEFT' && dx !== 1) { dx = -1; dy = 0; }
+            else if (nextDirection === 'RIGHT' && dx !== -1) { dx = 1; dy = 0; }
+            else if (nextDirection === 'UP' && dy !== 1) { dy = -1; dx = 0; }
+            else if (nextDirection === 'DOWN' && dy !== -1) { dy = 1; dx = 0; }
+        }
+
+
+        // حساب موضع الرأس الجديد
+        const newHead = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+        // 1. التحقق من اصطدام الجدار
+        if (newHead.x < 0 || newHead.x >= COLS || newHead.y < 0 || newHead.y >= ROWS) {
+            return gameOver();
+        }
+
+        // 2. التحقق من الاصطدام الذاتي (ابدأ التحقق من الجزء الرابع لتجنب الاصطدام الفوري عند الدوران)
+        for (let i = 4; i < snake.length; i++) {
+            if (newHead.x === snake[i].x && newHead.y === snake[i].y) {
+                return gameOver();
+            }
+        }
+
+        // إضافة الرأس الجديد إلى بداية الثعبان
+        snake.unshift(newHead);
+
+        // 3. التحقق من الطعام
+        if (newHead.x === food.x && newHead.y === food.y) {
+            score++;
+            scoreDisplay.textContent = score;
+            // الثعبان ينمو لأننا لا نزيل الذيل
+            generateFood();
+        } else {
+            // يتحرك الثعبان، إزالة الجزء الذيل
+            snake.pop();
+        }
+
+        // إعادة رسم اللعبة
+        draw();
+    }
+
+    /**
+     * حلقة اللعبة الرئيسية باستخدام setTimeout (أقرب إلى بنية تأخير/حلقة باسكال).
+     */
+    function gameLoop() {
+        if (gameRunning && !isPaused) {
+            update();
+        }
+        // استخدام مهلة زمنية متكررة لمحاكاة التحكم في السرعة
+        gameLoopId = setTimeout(gameLoop, INITIAL_SPEED - (score * 2));
+    }
+
+    /**
+     * إنهاء اللعبة.
+     */
+    function gameOver() {
+        gameRunning = false;
+        clearTimeout(gameLoopId);
+        messageDisplay.textContent = 'انتهت اللعبة! النتيجة: ' + score;
+        messageDisplay.classList.add('text-red-500');
+        startPauseButton.textContent = 'إعادة تشغيل';
+    }
+
+    /**
+     * تبديل حالة التشغيل/الإيقاف المؤقت.
+     */
+    function togglePause() {
+        if (!gameRunning) {
+            // بدء اللعبة
+            gameRunning = true;
+            isPaused = false;
+            messageDisplay.textContent = 'قيد التشغيل';
+            messageDisplay.classList.remove('text-red-500', 'text-yellow-400');
+            startPauseButton.textContent = 'إيقاف مؤقت';
+            gameLoop();
+        } else if (isPaused) {
+            // استئناف
+            isPaused = false;
+            messageDisplay.textContent = 'قيد التشغيل';
+            messageDisplay.classList.remove('text-red-500', 'text-yellow-400');
+            startPauseButton.textContent = 'إيقاف مؤقت';
+        } else {
+            // إيقاف مؤقت
+            isPaused = true;
+            messageDisplay.textContent = 'متوقف مؤقتًا';
+            messageDisplay.classList.add('text-yellow-400');
+            startPauseButton.textContent = 'استئناف';
+        }
+    }
+
+    /**
+     * يتعامل مع أحداث ضغط المفاتيح لتغيير الاتجاه والبدء/الإيقاف المؤقت.
+     */
+    function handleKeydown(event) {
+        let newDirection = '';
+
+        // التحقق من مفاتيح الاتجاه
+        // ملاحظة: الأزرار 4 و6 و2 و8 مأخوذة من كود باسكال الخاص بك.
+        if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === '4') { // (4) لليسار
+            newDirection = 'LEFT';
+        } else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === '6') { // (6) لليمين
+            newDirection = 'RIGHT';
+        } else if (event.key === 'ArrowUp' || event.key === 'w' || event.key === '2') { // (2) للأعلى
+            newDirection = 'UP';
+        } else if (event.key === 'ArrowDown' || event.key === 's' || event.key === '8') { // (8) للأسفل
+            newDirection = 'DOWN';
+        } else if (event.key === ' ' || event.key === 'Spacebar') {
+            event.preventDefault(); // منع شريط المسافة من التمرير
+            if (!gameRunning) {
+                initGame();
+                togglePause();
+            } else {
+                togglePause();
+            }
+            return;
+        }
+
+        if (newDirection) {
+            event.preventDefault();
+            // ابدأ اللعبة إذا كانت متوقفة مؤقتًا
+            if (!gameRunning) {
+                initGame();
+                togglePause();
+            }
+            
+            // أضف الحركة إلى قائمة الانتظار إذا كانت اللعبة قيد التشغيل وغير متوقفة مؤقتًا
+            if (gameRunning && !isPaused) {
+                // اسمح بتغيير حركة واحدة فقط لكل دورة لعبة، أو أضفها إلى قائمة الانتظار
+                if (nextMoveQueue.length < 2) {
+                    nextMoveQueue.push(newDirection);
+                }
+            }
+        }
+    }
+
+    // --- التحكم باللمس/السحب (Touch/Swipe Control) ---
+    let touchstartX = 0;
+    let touchendX = 0;
+    let touchstartY = 0;
+    let touchendY = 0;
+    
+    function handleGesture() {
+        const deltaX = touchendX - touchstartX;
+        const deltaY = touchendY - touchstartY;
+        
+        // تحديد ما إذا كانت الحركة أفقية أو عمودية بشكل أساسي
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
+            // حركة أفقية
+            if (deltaX > 0) {
+                nextMoveQueue.push('RIGHT');
+            } else {
+                nextMoveQueue.push('LEFT');
+            }
+        } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 20) {
+            // حركة عمودية
+            if (deltaY > 0) {
+                nextMoveQueue.push('DOWN');
+            } else {
+                nextMoveQueue.push('UP');
+            }
+        }
+        
+        // ابدأ اللعبة إذا تم تسجيل إيماءة ولم تكن قيد التشغيل
+        if (gameRunning === false) {
+             initGame();
+             togglePause();
+        }
+    }
+
+    // --- مستمعي الأحداث والتهيئة ---
+
+    function initialize() {
+        setupCanvas();
+        generateFood(); // توليد الطعام الأولي
+        initGame(); // إعداد الثعبان الأولي والحالة
+
+        // مستمع لوحة المفاتيح
+        document.addEventListener('keydown', handleKeydown);
+        
+        // مستمعو أزرار التحكم
+        document.getElementById('start-pause').addEventListener('click', () => {
+             if (startPauseButton.textContent === 'إعادة تشغيل') {
+                initGame();
+                togglePause();
+            } else {
+                togglePause();
+            }
+        });
+        document.getElementById('up').addEventListener('click', () => {
+             if (!gameRunning) { initGame(); togglePause(); }
+             if (gameRunning && !isPaused) nextMoveQueue.push('UP');
+        });
+        document.getElementById('down').addEventListener('click', () => {
+             if (!gameRunning) { initGame(); togglePause(); }
+             if (gameRunning && !isPaused) nextMoveQueue.push('DOWN');
+        });
+        document.getElementById('left').addEventListener('click', () => {
+             if (!gameRunning) { initGame(); togglePause(); }
+             if (gameRunning && !isPaused) nextMoveQueue.push('LEFT');
+        });
+        document.getElementById('right').addEventListener('click', () => {
+             if (!gameRunning) { initGame(); togglePause(); }
+             if (gameRunning && !isPaused) nextMoveQueue.push('RIGHT');
+        });
+        
+        // مستمعو اللمس (على لوحة الرسم للسحب)
+        canvas.addEventListener('touchstart', e => {
+            touchstartX = e.changedTouches[0].screenX;
+            touchstartY = e.changedTouches[0].screenY;
+        }, false);
+        canvas.addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            touchendY = e.changedTouches[0].screenY;
+            handleGesture();
+        }, false);
+        
+        // مستمع تغيير الحجم للوحة الرسم المتجاوبة
+        window.addEventListener('resize', setupCanvas);
+
+        // الرسم الأولي
+        draw();
+    }
+
+    window.onload = initialize;
+</script>
+</body>
+</html>
